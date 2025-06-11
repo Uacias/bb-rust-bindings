@@ -7,10 +7,12 @@ fn main() {
 
     let barretenberg_build = "/home/uacias/dev/visoft/aztec/aztec-packages/barretenberg/cpp/build";
 
+    // Link libraries
     println!("cargo:rustc-link-search={}/lib", barretenberg_build);
     println!("cargo:rustc-link-lib=static=barretenberg");
     println!("cargo:rustc-link-lib=stdc++");
 
+    // Kopiowanie headerów
     let result = Command::new("sh")
         .args(&[
             "copy-headers.sh",
@@ -50,11 +52,19 @@ fn main() {
                 #include <barretenberg/dsl/acir_proofs/c_bind.hpp>
             "#,
         )
+        // KLUCZOWE: Dodaj Tracy i msgpack paths
         .clang_args([
             "-std=c++20",
             "-xc++",
             &format!("-I{}/include", barretenberg_build),
+            &format!("-I{}/_deps/tracy-src/public", barretenberg_build), // Tracy
+            &format!(
+                "-I{}/_deps/msgpack-c/src/msgpack-c/include",
+                barretenberg_build
+            ), // msgpack
+            "-DTRACY_ENABLE=OFF",                                        // Wyłącz Tracy
         ])
+        // WSZYSTKIE FUNKCJE
         .allowlist_function("pedersen_commit")
         .allowlist_function("pedersen_hash")
         .allowlist_function("pedersen_hashes")
@@ -104,6 +114,7 @@ fn main() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 
+    // Debug - zapisz też do głównego katalogu
     bindings
         .write_to_file("debug_bindings.rs")
         .expect("Couldn't write debug bindings!");
