@@ -16,6 +16,18 @@ unsafe extern "C" {
     pub fn pedersen_hash_buffer(input_buffer: *const u8, hash_index: *const u32, output: out_buf);
 }
 unsafe extern "C" {
+    pub fn poseidon2_hash(inputs_buffer: vec_in_buf, output: out_buf);
+}
+unsafe extern "C" {
+    pub fn poseidon2_hashes(inputs_buffer: vec_in_buf, output: out_buf);
+}
+unsafe extern "C" {
+    pub fn poseidon2_permutation(inputs_buffer: vec_in_buf, output: vec_out_buf);
+}
+unsafe extern "C" {
+    pub fn poseidon2_hash_accumulate(inputs_buffer: vec_in_buf, output: out_buf);
+}
+unsafe extern "C" {
     pub fn blake2s(data: *const u8, r: out_buf32);
 }
 unsafe extern "C" {
