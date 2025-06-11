@@ -47,7 +47,6 @@ fn main() {
                 #include <barretenberg/crypto/blake2s/c_bind.hpp>
                 #include <barretenberg/crypto/schnorr/c_bind.hpp>
                 #include <barretenberg/srs/c_bind.hpp>
-                #include <barretenberg/examples/simple/c_bind.hpp>
                 #include <barretenberg/common/c_bind.hpp>
                 #include <barretenberg/dsl/acir_proofs/c_bind.hpp>
             "#,
@@ -84,7 +83,6 @@ fn main() {
         .allowlist_function("aes_decrypt_buffer_cbc")
         .allowlist_function("srs_init_srs")
         .allowlist_function("srs_init_grumpkin_srs")
-        .allowlist_function("examples_simple_create_and_verify_proof")
         .allowlist_function("test_threads")
         .allowlist_function("common_init_slab_allocator")
         .allowlist_function("acir_get_circuit_sizes")
