@@ -64,6 +64,10 @@ fn main() {
             "-DTRACY_ENABLE=OFF",                                        // Wyłącz Tracy
         ])
         // WSZYSTKIE FUNKCJE
+        .blocklist_type("out_buf")
+        .blocklist_type("in_buf")
+        .blocklist_type("vec_in_buf")
+        .blocklist_type("out_buf32")
         .allowlist_function("pedersen_commit")
         .allowlist_function("pedersen_hash")
         .allowlist_function("pedersen_hashes")

@@ -2,7 +2,13 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-// Include generated bindings
+// Zdefiniuj typy które wykluczyliśmy z bindgen
+pub type out_buf = *mut u8;
+pub type in_buf = *const u8;
+pub type vec_in_buf = *const u8;
+pub type out_buf32 = *mut u8;
+
+// Include wygenerowanych bindingów
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 #[cfg(test)]
