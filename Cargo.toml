@@ -7,6 +7,7 @@ edition = "2021"
 name = "barretenberg_rust_bindings"
 
 [dependencies]
+hex = "0.4"
 
 [build-dependencies]
 bindgen = "0.71"
