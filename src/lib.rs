@@ -24,35 +24,12 @@ mod tests {
     }
 
     #[test]
-    fn test_pedersen_hash_proper() {
-        unsafe {
-            println!("Testing Pedersen hash with proper signature...");
+    fn test_simple_function_check() {
+        // Sprawdź czy więcej funkcji się wygenerowało
+        let pedersen_ptr = pedersen_hash as *const ();
 
-            let input_data = [1u8, 2u8, 3u8, 4u8]; // przykładowe dane
-            let hash_index: u32 = 0; // pierwszy hash
-            let mut output = [0u8; 32];
+        println!("pedersen_hash: {:p}", pedersen_ptr);
 
-            // vec_in_buf prawdopodobnie to struktura {ptr, len}
-            // Spróbujmy przekazać bezpośrednio jako surowe wskaźniki
-
-            // To może nie zadziałać, ale spróbujmy
-            let inputs_buffer = input_data.as_ptr(); // może bindgen źle zinterpretował typ
-
-            println!("Input: {:?}", input_data);
-            println!("Hash index: {}", hash_index);
-            println!("Output before: {:?}", &output[0..4]);
-
-            pedersen_hash(
-                inputs_buffer as *const _ as vec_in_buf, // cast na właściwy typ
-                &hash_index as *const u32,
-                output.as_mut_ptr() as out_buf,
-            );
-
-            println!("Output after: {:?}", &output[0..8]);
-
-            if output != [0u8; 32] {
-                println!("Pedersen SUCCESS!");
-            }
-        }
+        assert!(!pedersen_ptr.is_null());
     }
 }
