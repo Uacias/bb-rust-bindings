@@ -1,0 +1,12 @@
+[package]
+name = "barretenberg-rust-bindings"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "barretenberg_rust_bindings"
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.71"
