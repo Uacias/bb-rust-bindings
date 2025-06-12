@@ -219,7 +219,10 @@ pub fn get_circuit_sizes_safe(cs: &[u8], rec: bool, honk: bool) -> CircuitSizes 
     unsafe {
         bindgen::acir_get_circuit_sizes(buf.as_ptr(), &rec, &honk, &mut sz.total, &mut sz.subgroup);
     }
-    sz
+    CircuitSizes {
+        total: u32::from_be(sz.total),
+        subgroup: u32::from_be(sz.subgroup),
+    }
 }
 
 /// ACIR: prove & verify UltraHonk
@@ -305,12 +308,8 @@ pub fn acir_serialize_vk_fields_safe(ptr: in_ptr) -> (Vec<[u8; 32]>, [u8; 32]) {
         let mut raw_ptr: *mut u8 = std::ptr::null_mut();
         let mut hash = [0u8; 32];
 
-        // 3) wywołanie FFI:
-        //    - &mut raw_ptr ⇒ *mut *mut u8 (vec_out_buf)
-        //    - hash.as_mut_ptr() ⇒ *mut u8 (out_buf)
         bindgen::acir_serialize_verification_key_into_fields(ptr, &mut raw_ptr, hash.as_mut_ptr());
 
-        // 4) przerabiamy wynikowy *mut *mut u8 na Vec<[u8;32]>
         let fields = parse_vec_out_buf(&mut raw_ptr);
         (fields, hash)
     }
@@ -352,21 +351,17 @@ pub fn acir_write_vk_ultra_honk_safe(vec: &[u8]) -> Vec<u8> {
 
 /// ACIR: proof as fields
 pub fn acir_proof_as_fields_ultra_honk_safe(proof: &[u8]) -> Vec<[u8; 32]> {
-    // Zakoduj proof z 4-bajtowym prefiksem długości
     let buf = encode_raw_buffer(proof);
     unsafe {
-        // 1) surowy wskaźnik, w który C++ zapisze adres zaalokowanego pola
         let mut raw_ptr: *mut u8 = std::ptr::null_mut();
-        // 2) przekaż &mut raw_ptr – auto-koercja daje *mut *mut u8 (vec_out_buf)
         bindgen::acir_proof_as_fields_ultra_honk(buf.as_ptr(), &mut raw_ptr);
-        // 3) sparsuj length-prefixed wynik na Vec<[u8;32]>
         parse_vec_out_buf(&mut raw_ptr)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::circuits::decode_circuit;
+    use crate::{barretenberg::utils::compute_subgroup_size, circuits::decode_circuit};
 
     use super::*;
     const FR: [u8; 32] = [1; 32];
@@ -425,6 +420,37 @@ mod tests {
     fn test_acir_get_circuit_size() {
         let (_, constraint_system_buf) = decode_circuit(BYTECODE).unwrap();
         let circuit_sizes = get_circuit_sizes_safe(&constraint_system_buf, false, false);
-        println!("{:?}", circuit_sizes);
+        assert_eq!(circuit_sizes.total, 22);
+        assert_eq!(circuit_sizes.subgroup, 32);
+    }
+
+    #[test]
+    fn test_compute_subgroup_size() {
+        let mut subgroup_size = compute_subgroup_size(22);
+        assert_eq!(subgroup_size, 32);
+
+        subgroup_size = compute_subgroup_size(50);
+        assert_eq!(subgroup_size, 64);
+
+        subgroup_size = compute_subgroup_size(100);
+        assert_eq!(subgroup_size, 128);
+
+        subgroup_size = compute_subgroup_size(1000);
+        assert_eq!(subgroup_size, 1024);
+
+        subgroup_size = compute_subgroup_size(10000);
+        assert_eq!(subgroup_size, 16384);
+
+        subgroup_size = compute_subgroup_size(100000);
+        assert_eq!(subgroup_size, 131072);
+
+        subgroup_size = compute_subgroup_size(200000);
+        assert_eq!(subgroup_size, 262144);
+
+        subgroup_size = compute_subgroup_size(500000);
+        assert_eq!(subgroup_size, 524288);
+
+        subgroup_size = compute_subgroup_size(1000000);
+        assert_eq!(subgroup_size, 1048576);
     }
 }
