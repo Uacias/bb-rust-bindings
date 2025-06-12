@@ -1,4 +1,7 @@
-use crate::{bindgen::acir_get_circuit_sizes, circuits::decode_circuit};
+use crate::{
+    bindgen::acir_get_circuit_sizes, circuits::decode_circuit, encode_raw_buffer,
+    get_circuit_sizes_safe,
+};
 
 pub fn get_honk_verification_key(
     circuit_bytecode: &str,
@@ -26,26 +29,14 @@ pub fn compute_subgroup_size(circuit_size: u32) -> u32 {
 }
 
 pub fn get_circuit_size(circuit_bytecode: &str, recursive: bool) -> u32 {
-    let (_, acir_buffer_uncompressed) = match decode_circuit(circuit_bytecode) {
-        Ok(result) => result,
+    // Decode the bytecode into compressed + uncompressed buffers
+    let (_, acir_buf) = match decode_circuit(circuit_bytecode) {
+        Ok(x) => x,
         Err(_) => return 0,
     };
-
-    let mut total: u32 = 0;
-    let mut subgroup: u32 = 0;
-    let honk_recursion = false;
-
-    unsafe {
-        acir_get_circuit_sizes(
-            acir_buffer_uncompressed.as_ptr(),
-            &recursive as *const bool,
-            &honk_recursion as *const bool,
-            &mut total as *mut u32,
-            &mut subgroup as *mut u32,
-        );
-    }
-
-    total
+    // Call the safe wrapper:
+    let sizes = get_circuit_sizes_safe(&acir_buf, recursive, false);
+    sizes.total
 }
 
 pub fn get_subgroup_size(circuit_bytecode: &str, recursive: bool) -> u32 {

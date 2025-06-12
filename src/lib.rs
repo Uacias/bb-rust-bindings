@@ -181,10 +181,15 @@ pub fn pedersen_commit_safe(input: &[[u8; 32]], ctx: u32) -> [u8; 64] {
     out
 }
 
-/// Initialize SRS
-pub fn srs_init_safe(num: u32) {
+/// Initialize SRS (Structured Reference String)
+pub fn srs_init_safe(g1_data: &[u8], num_points: u32, g2_data: &[u8]) {
+    let num_be = num_points.to_be();
     unsafe {
-        bindgen::srs_init_srs(std::ptr::null(), &num, std::ptr::null());
+        bindgen::srs_init_srs(
+            g1_data.as_ptr(),      // *const u8
+            &num_be as *const u32, // big-endian u32
+            g2_data.as_ptr(),      // *const u8
+        );
     }
 }
 
@@ -361,7 +366,11 @@ pub fn acir_proof_as_fields_ultra_honk_safe(proof: &[u8]) -> Vec<[u8; 32]> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{barretenberg::utils::compute_subgroup_size, circuits::decode_circuit};
+    use crate::{
+        barretenberg::{srs::setup_srs_from_bytecode, utils::compute_subgroup_size},
+        circuits::decode_circuit,
+    };
+    use std::io::Write;
 
     use super::*;
     const FR: [u8; 32] = [1; 32];
@@ -413,8 +422,24 @@ mod tests {
     fn t_slab() {
         init_slab_allocator_safe(1);
     }
+    #[test]
+    fn t_slab2() {
+        init_slab_allocator_safe(2);
+    }
+    #[test]
+    fn t_slab4() {
+        init_slab_allocator_safe(4);
+    }
+    #[test]
+    fn t_slab8() {
+        init_slab_allocator_safe(8);
+    }
+    #[test]
+    fn t_slab16() {
+        init_slab_allocator_safe(16);
+    }
 
-    const BYTECODE: &str = "H4sIAAAAAAAA/62QQQqAMAwErfigpEna5OZXLLb/f4KKLZbiTQdCQg7Dsm66mc9x00O717rhG9ico5cgMOfoMxJu4C2pAEsKioqisnslysoaLVkEQ6aMRYxKFc//ZYQr29L10XfhXv4jB52E+OpMAQAA";
+    const BYTECODE: &str = "H4sIAAAAAAAA/7VSWw4CIQzkoVG/Ze/R8ljKn1eRyN7/CMYICWH7t+wkZAhthpmCFH+oun64VJZij9bzqgzHgL2Wg9X7Em1Bh2+wKVMAH/JKSBgofCw5V8hTTDlFSOhdwS0kt1UxOc8XSCbzKeHV5AGozvhMXe5TSOZsrD0GXrq6njjLpm/O0Ycbk3Hp9mbIyb0DHETT05WvYg811FrvffAn5/vD0Ytm7mp4VjbdWZvnF3hgTpCVBAAA";
 
     #[test]
     fn test_acir_get_circuit_size() {
@@ -452,5 +477,13 @@ mod tests {
 
         subgroup_size = compute_subgroup_size(1000000);
         assert_eq!(subgroup_size, 1048576);
+    }
+
+    #[test]
+    fn test_prove_and_verify_ultra_honk() {
+        println!("LOL");
+        std::io::stdout().flush().expect("Flush failed");
+        // Setup SRS
+        setup_srs_from_bytecode(BYTECODE, None, false).unwrap();
     }
 }

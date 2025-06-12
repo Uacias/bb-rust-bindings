@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     barretenberg::utils::{compute_subgroup_size, get_circuit_size},
     bindgen::srs_init_srs,
+    init_slab_allocator_safe, srs_init_safe,
 };
 
 // G2 is a small fixed group, so we can hardcode it here
@@ -59,15 +60,16 @@ pub fn get_srs(subgroup_size: u32, srs_path: Option<&str>) -> Srs {
 }
 
 pub fn setup_srs(circuit_size: u32, srs_path: Option<&str>) -> Result<u32, String> {
+    // 1) subgroup_size = next_pow2(circuit_size)
     let subgroup_size = compute_subgroup_size(circuit_size);
+    // 4) pobieramy raw SRS
     let srs = get_srs(subgroup_size, srs_path);
-    unsafe {
-        srs_init_srs(
-            srs.g1_data.as_ptr(),          // Convert &Vec<u8> to *const u8
-            &srs.num_points as *const u32, // Convert u32 to *const u32
-            srs.g2_data.as_ptr(),          // Convert &Vec<u8> to *const u8
-        );
-    }
+    println!("G1 data length: {}", srs.g1_data.len());
+    println!("G2 data length: {}", srs.g2_data.len());
+    println!("Num points: {}", srs.num_points);
+    // 5) właściwe wywołanie do C++
+    srs_init_safe(&srs.g1_data, srs.num_points, &srs.g2_data);
+
     Ok(srs.num_points)
 }
 
