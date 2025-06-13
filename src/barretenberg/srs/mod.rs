@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     barretenberg::utils::{compute_subgroup_size, get_circuit_size},
-    srs_init_safe,
+    init_slab_allocator_safe, srs_init_safe,
 };
 
 // G2 is a small fixed group, so we can hardcode it here
@@ -52,31 +52,32 @@ pub fn get_srs(subgroup_size: u32, srs_path: Option<&str>) -> Srs {
             }
         }
         None => {
+            eprintln!("IN NET SRS");
             let net_srs = netsrs::NetSrs::new(subgroup_size + 1);
+            eprintln!("{:?}", net_srs);
             net_srs.to_srs()
         }
     }
 }
 
 pub fn setup_srs(circuit_size: u32, srs_path: Option<&str>) -> Result<u32, String> {
-    println!("=== SRS Setup Debug ===");
-    println!("Circuit size: {}", circuit_size);
+    eprintln!("=== SRS Setup Debug ===");
+    eprintln!("Circuit size: {}", circuit_size);
 
     // 1) Calculate subgroup size
     let subgroup_size = compute_subgroup_size(circuit_size);
-    println!("Subgroup size: {}", subgroup_size);
-
+    eprintln!("Subgroup size: {}", subgroup_size);
     // 2) Get SRS data
-    println!("Getting SRS data...");
+    eprintln!("Getting SRS data...");
     let srs = get_srs(subgroup_size, srs_path);
 
     // 3) Validate data
-    println!("  G1 data length: {} bytes", srs.g1_data.len());
-    println!("  G2 data length: {} bytes", srs.g2_data.len());
-    println!("  Num points: {}", srs.num_points);
+    eprintln!("  G1 data length: {} bytes", srs.g1_data.len());
+    eprintln!("  G2 data length: {} bytes", srs.g2_data.len());
+    eprintln!("  Num points: {}", srs.num_points);
     srs_init_safe(&srs.g1_data, srs.num_points, &srs.g2_data);
 
-    println!("SRS initialized successfully!");
+    eprintln!("SRS initialized successfully!");
     Ok(srs.num_points)
 }
 

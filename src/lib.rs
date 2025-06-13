@@ -185,11 +185,7 @@ pub fn pedersen_commit_safe(input: &[[u8; 32]], ctx: u32) -> [u8; 64] {
 pub fn srs_init_safe(g1_data: &[u8], num_points: u32, g2_data: &[u8]) {
     let num_be = num_points.to_be();
     unsafe {
-        bindgen::srs_init_srs(
-            g1_data.as_ptr(),      // *const u8
-            &num_be as *const u32, // big-endian u32
-            g2_data.as_ptr(),      // *const u8
-        );
+        bindgen::srs_init_srs(g1_data.as_ptr(), &num_be as *const u32, g2_data.as_ptr());
     }
 }
 

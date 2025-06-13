@@ -4,6 +4,7 @@ use std::ops::Deref;
 
 use super::{Srs, G2};
 
+#[derive(Debug)]
 pub struct NetSrs(pub Srs);
 
 impl Deref for NetSrs {
@@ -27,19 +28,18 @@ impl NetSrs {
     }
 
     fn download_g1_data(num_points: u32) -> Vec<u8> {
-        const G1_START: u32 = 28;
-        let g1_end: u32 = G1_START + num_points * 64 - 1;
+        // Skip download if numPoints is 0
+        if num_points == 0 {
+            return Vec::new();
+        }
+
+        let g1_end = num_points * 64 - 1;
 
         let mut headers = HeaderMap::new();
-        headers.insert(
-            RANGE,
-            format!("bytes={}-{}", G1_START, g1_end).parse().unwrap(),
-        );
+        headers.insert(RANGE, format!("bytes=0-{}", g1_end).parse().unwrap());
 
         let response = Client::new()
-            .get(
-                "https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/monomial/transcript00.dat",
-            )
+            .get("https://crs.aztec.network/g1.dat")
             .headers(headers)
             .send()
             .unwrap();
