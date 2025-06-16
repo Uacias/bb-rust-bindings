@@ -5,7 +5,9 @@ use std::ptr;
 use acir::{native_types::WitnessMap, FieldElement};
 
 use crate::{
-    bindgen::acir_prove_ultra_honk, circuits::get_acir_buffer_uncompressed, execute::execute,
+    bindgen::{acir_prove_ultra_honk, acir_prove_ultra_keccak_honk},
+    circuits::get_acir_buffer_uncompressed,
+    execute::execute,
     witness::serialize_witness,
 };
 
@@ -41,12 +43,47 @@ pub fn prove_ultra_honk(
     let len_be = unsafe { std::ptr::read_unaligned(out_ptr as *const [u8; 4]) };
     let len = u32::from_be_bytes(len_be) as usize;
 
-    // Skopiuj CAŁOŚĆ (łącznie z prefiksem długości)
-    let total_len = 4 + len;
-    let proof = unsafe { std::slice::from_raw_parts(out_ptr, total_len).to_vec() };
+    // Przesuń wskaźnik za prefix i skopiuj TYLKO czyste dane proof
+    let data_ptr = unsafe { out_ptr.add(4) };
+    let proof = unsafe { std::slice::from_raw_parts(data_ptr, len).to_vec() };
 
     // Zwolnij pamięć C++
     unsafe { free(out_ptr as *mut c_void) };
 
-    Ok(proof) // <- Zwracamy całość, tak jak w JS
+    Ok(proof) // <- Zwracamy tylko dane, bez prefiksu
+}
+
+pub fn prove_ultra_keccak_honk(
+    circuit_bytecode: &str,
+    initial_witness: WitnessMap<FieldElement>,
+    recursive: bool,
+) -> Result<Vec<u8>, String> {
+    let witness_stack = execute(circuit_bytecode, initial_witness)?;
+    let serialized_solved_witness = serialize_witness(witness_stack)?;
+    let acir_buffer_uncompressed = get_acir_buffer_uncompressed(circuit_bytecode)?;
+
+    let acir_input = encode_raw_buffer(&acir_buffer_uncompressed);
+    let witness_input = encode_raw_buffer(&serialized_solved_witness);
+
+    let acir_ptr = acir_input.as_ptr();
+    let witness_ptr = witness_input.as_ptr();
+
+    let mut out_ptr: *mut u8 = ptr::null_mut();
+
+    unsafe {
+        acir_prove_ultra_keccak_honk(acir_ptr, witness_ptr, &mut out_ptr as *mut *mut u8);
+    }
+
+    // Odczytaj długość z prefiksu
+    let len_be = unsafe { std::ptr::read_unaligned(out_ptr as *const [u8; 4]) };
+    let len = u32::from_be_bytes(len_be) as usize;
+
+    // Przesuń wskaźnik za prefix i skopiuj TYLKO czyste dane proof
+    let data_ptr = unsafe { out_ptr.add(4) };
+    let proof = unsafe { std::slice::from_raw_parts(data_ptr, len).to_vec() };
+
+    // Zwolnij pamięć C++
+    unsafe { free(out_ptr as *mut c_void) };
+
+    Ok(proof) // <- Zwracamy tylko dane, bez prefiksu
 }
