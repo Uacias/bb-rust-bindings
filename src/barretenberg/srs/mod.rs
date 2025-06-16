@@ -38,38 +38,47 @@ impl Srs {
     }
 }
 
-pub fn get_srs(subgroup_size: u32, srs_path: Option<&str>) -> Srs {
+pub async fn get_srs(
+    subgroup_size: u32,
+    srs_path: Option<&str>,
+) -> Result<Srs, Box<dyn std::error::Error + Send + Sync>> {
     match srs_path {
         Some(path) => {
             if path.ends_with(".dat") {
                 // Interpret as a .dat file
                 let local_srs = localsrs::LocalSrs::from_dat_file(subgroup_size + 1, Some(path));
-                local_srs.to_srs()
+                Ok(local_srs.to_srs())
             } else {
                 // Otherwise interpret as a .local file (i.e. a serialized SRS struct)
                 let local_srs = localsrs::LocalSrs::new(subgroup_size + 1, Some(path));
-                local_srs.to_srs()
+                Ok(local_srs.to_srs())
             }
         }
         None => {
             eprintln!("IN NET SRS");
             let net_srs = netsrs::NetSrs::new(subgroup_size + 1);
             eprintln!("{:?}", net_srs);
-            net_srs.to_srs()
+
+            // Pobierz SRS async i następnie wyciągnij owned wartość
+            let _ = net_srs.get_srs().await?;
+            net_srs.try_to_srs()
         }
     }
 }
 
-pub fn setup_srs(circuit_size: u32, srs_path: Option<&str>) -> Result<u32, String> {
+pub async fn setup_srs(circuit_size: u32, srs_path: Option<&str>) -> Result<u32, String> {
     eprintln!("=== SRS Setup Debug ===");
     eprintln!("Circuit size: {}", circuit_size);
 
     // 1) Calculate subgroup size
     let subgroup_size = compute_subgroup_size(circuit_size);
     eprintln!("Subgroup size: {}", subgroup_size);
-    // 2) Get SRS data
+
+    // 2) Get SRS data (await the async function)
     eprintln!("Getting SRS data...");
-    let srs = get_srs(subgroup_size, srs_path);
+    let srs = get_srs(subgroup_size, srs_path)
+        .await
+        .map_err(|e| format!("Failed to get SRS: {}", e))?;
 
     // 3) Validate data
     eprintln!("  G1 data length: {} bytes", srs.g1_data.len());
@@ -81,11 +90,11 @@ pub fn setup_srs(circuit_size: u32, srs_path: Option<&str>) -> Result<u32, Strin
     Ok(srs.num_points)
 }
 
-pub fn setup_srs_from_bytecode(
+pub async fn setup_srs_from_bytecode(
     circuit_bytecode: &str,
     srs_path: Option<&str>,
     recursive: bool,
 ) -> Result<u32, String> {
     let circuit_size = get_circuit_size(circuit_bytecode, recursive);
-    setup_srs(circuit_size, srs_path)
+    setup_srs(circuit_size, srs_path).await
 }

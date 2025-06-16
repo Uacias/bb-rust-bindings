@@ -481,10 +481,10 @@ mod tests {
         assert_eq!(subgroup_size, 1048576);
     }
 
-    #[test]
-    fn test_prove_and_verify_ultra_honk() {
-        // 1) Setup SRS
-        setup_srs_from_bytecode(BYTECODE, None, true).unwrap();
+    #[tokio::test]
+    async fn test_prove_and_verify_ultra_honk() {
+        // 1) Setup SRS (async)
+        setup_srs_from_bytecode(BYTECODE, None, true).await.unwrap();
 
         // 2) Prepare witness
         let initial_witness =
