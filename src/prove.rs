@@ -37,16 +37,16 @@ pub fn prove_ultra_honk(
         acir_prove_ultra_honk(acir_ptr, witness_ptr, &mut out_ptr as *mut *mut u8);
     }
 
-    // 6) Read len from prefix (4 bytes big-endian)
+    // Odczytaj długość z prefiksu
     let len_be = unsafe { std::ptr::read_unaligned(out_ptr as *const [u8; 4]) };
     let len = u32::from_be_bytes(len_be) as usize;
 
-    // 7) Create Vec<u8> from bytes
-    let data_ptr = unsafe { out_ptr.add(4) };
-    let proof = unsafe { std::slice::from_raw_parts(data_ptr, len).to_vec() };
+    // Skopiuj CAŁOŚĆ (łącznie z prefiksem długości)
+    let total_len = 4 + len;
+    let proof = unsafe { std::slice::from_raw_parts(out_ptr, total_len).to_vec() };
 
-    // 8) Free
+    // Zwolnij pamięć C++
     unsafe { free(out_ptr as *mut c_void) };
 
-    Ok(proof)
+    Ok(proof) // <- Zwracamy całość, tak jak w JS
 }

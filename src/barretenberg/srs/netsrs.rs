@@ -1,10 +1,9 @@
 use reqwest::header::{HeaderMap, RANGE};
 use reqwest::Client;
-use std::ops::Deref;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 
-use super::{Srs, G2};
+use crate::barretenberg::srs::Srs;
 
 #[derive(Debug, Clone)]
 pub struct NetSrs {
@@ -38,10 +37,14 @@ impl NetSrs {
     }
 
     async fn download_srs(&self) -> Result<Srs, Box<dyn std::error::Error + Send + Sync>> {
+        // Pobierz zarówno G1 jak i G2
+        let (g1_data, g2_data) =
+            tokio::try_join!(self.download_g1_data(), self.download_g2_data())?;
+
         Ok(Srs {
             num_points: self.num_points,
-            g1_data: self.download_g1_data().await?,
-            g2_data: G2.to_vec(),
+            g1_data,
+            g2_data,
         })
     }
 
@@ -64,6 +67,51 @@ impl NetSrs {
 
         let bytes = response.bytes().await?;
         Ok(bytes.to_vec())
+    }
+
+    async fn download_g2_data(&self) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        let client = Client::new();
+        let response = client
+            .get("https://crs.aztec.network/g2.dat")
+            .send()
+            .await?;
+
+        let bytes = response.bytes().await?;
+        Ok(bytes.to_vec())
+    }
+
+    // Metody pomocnicze do pobrania strumieni (jak w TS)
+    pub async fn stream_g1_data(
+        &self,
+    ) -> Result<reqwest::Response, Box<dyn std::error::Error + Send + Sync>> {
+        if self.num_points == 0 {
+            return Err("Cannot stream G1 data with 0 points".into());
+        }
+
+        let g1_end = self.num_points * 64 - 1;
+        let mut headers = HeaderMap::new();
+        headers.insert(RANGE, format!("bytes=0-{}", g1_end).parse()?);
+
+        let client = Client::new();
+        let response = client
+            .get("https://crs.aztec.network/g1.dat")
+            .headers(headers)
+            .send()
+            .await?;
+
+        Ok(response)
+    }
+
+    pub async fn stream_g2_data(
+        &self,
+    ) -> Result<reqwest::Response, Box<dyn std::error::Error + Send + Sync>> {
+        let client = Client::new();
+        let response = client
+            .get("https://crs.aztec.network/g2.dat")
+            .send()
+            .await?;
+
+        Ok(response)
     }
 
     // Metoda która próbuje sklonować SRS jeśli jest dostępny
@@ -91,6 +139,70 @@ impl NetSrs {
     }
 }
 
+// Struktura dla Grumpkin CRS (dodatkowa, jeśli potrzebujesz)
+#[derive(Debug, Clone)]
+pub struct NetGrumpkinSrs {
+    num_points: u32,
+    g1_data: Arc<OnceCell<Vec<u8>>>,
+}
+
+impl NetGrumpkinSrs {
+    pub fn new(num_points: u32) -> Self {
+        NetGrumpkinSrs {
+            num_points,
+            g1_data: Arc::new(OnceCell::new()),
+        }
+    }
+
+    pub async fn get_g1_data(&self) -> Result<&Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        self.g1_data
+            .get_or_try_init(|| async { self.download_g1_data().await })
+            .await
+    }
+
+    async fn download_g1_data(&self) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        if self.num_points == 0 {
+            return Ok(Vec::new());
+        }
+
+        let g1_end = self.num_points * 64 - 1;
+
+        let mut headers = HeaderMap::new();
+        headers.insert(RANGE, format!("bytes=0-{}", g1_end).parse()?);
+
+        let client = Client::new();
+        let response = client
+            .get("https://crs.aztec.network/grumpkin_g1.dat")
+            .headers(headers)
+            .send()
+            .await?;
+
+        let bytes = response.bytes().await?;
+        Ok(bytes.to_vec())
+    }
+
+    pub async fn stream_g1_data(
+        &self,
+    ) -> Result<reqwest::Response, Box<dyn std::error::Error + Send + Sync>> {
+        if self.num_points == 0 {
+            return Err("Cannot stream G1 data with 0 points".into());
+        }
+
+        let g1_end = self.num_points * 64 - 1;
+        let mut headers = HeaderMap::new();
+        headers.insert(RANGE, format!("bytes=0-{}", g1_end).parse()?);
+
+        let client = Client::new();
+        let response = client
+            .get("https://crs.aztec.network/grumpkin_g1.dat")
+            .headers(headers)
+            .send()
+            .await?;
+
+        Ok(response)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,28 +212,23 @@ mod tests {
         let net_srs = NetSrs::new(1000);
         let srs_ref = net_srs.get_srs().await.unwrap();
         assert_eq!(srs_ref.num_points, 1000);
-
-        // Teraz try_to_srs będzie dostępne
-        let srs_owned = net_srs.try_to_srs().unwrap();
-        assert_eq!(srs_owned.num_points, 1000);
+        assert!(!srs_ref.g1_data.is_empty());
+        assert!(!srs_ref.g2_data.is_empty());
     }
 
     #[tokio::test]
-    async fn test_lazy_srs_reference() {
-        let net_srs = NetSrs::new(1000);
-        let srs_ref = net_srs.as_srs().await.unwrap();
-        assert_eq!(srs_ref.num_points, 1000);
-        // net_srs może być dalej używany
+    async fn test_g2_download() {
+        let net_srs = NetSrs::new(100);
+        let srs = net_srs.get_srs().await.unwrap();
+        // G2 powinno być pobrane z sieci, nie z hardkodowanej stałej
+        assert!(!srs.g2_data.is_empty());
+        println!("G2 data size: {} bytes", srs.g2_data.len());
     }
 
     #[tokio::test]
-    async fn test_to_srs_with_clone() {
-        let net_srs = NetSrs::new(1000);
-        // Najpierw zainicjuj SRS
-        let _ = net_srs.get_srs().await.unwrap();
-
-        // Teraz użyj to_srs (które klonuje)
-        let srs_owned = net_srs.to_srs().unwrap();
-        assert_eq!(srs_owned.num_points, 1000);
+    async fn test_grumpkin_srs() {
+        let grumpkin_srs = NetGrumpkinSrs::new(500);
+        let g1_data = grumpkin_srs.get_g1_data().await.unwrap();
+        assert_eq!(g1_data.len(), 500 * 64);
     }
 }

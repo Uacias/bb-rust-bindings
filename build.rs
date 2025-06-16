@@ -32,7 +32,7 @@ fn find_library(base_path: &str, lib_name: &str) -> Option<PathBuf> {
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
-    let barretenberg_build = "/home/uacias/dev/visoft/barretenberg-rust-bindings/build";
+    let barretenberg_build = "/home/uacias/dev/visoft/aztec/aztec-packages/barretenberg/cpp/build";
 
     // Verify the build directory exists
     if !std::path::Path::new(barretenberg_build).exists() {

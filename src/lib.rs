@@ -440,8 +440,8 @@ mod tests {
         init_slab_allocator_safe(16);
     }
 
-    // const BYTECODE: &str = "H4sIAAAAAAAA/7VSWw4CIQzkoVG/Ze/R8ljKn1eRyN7/CMYICWH7t+wkZAhthpmCFH+oun64VJZij9bzqgzHgL2Wg9X7Em1Bh2+wKVMAH/JKSBgofCw5V8hTTDlFSOhdwS0kt1UxOc8XSCbzKeHV5AGozvhMXe5TSOZsrD0GXrq6njjLpm/O0Ycbk3Hp9mbIyb0DHETT05WvYg811FrvffAn5/vD0Ytm7mp4VjbdWZvnF3hgTpCVBAAA";
-    const BYTECODE: &str = "H4sIAAAAAAAA/62QQQqAMAwErfigpEna5OZXLLb/f4KKLZbiTQdCQg7Dsm66mc9x00O717rhG9ico5cgMOfoMxJu4C2pAEsKioqisnslysoaLVkEQ6aMRYxKFc//ZYQr29L10XfhXv4jB52E+OpMAQAA";
+    const BYTECODE: &str = "H4sIAAAAAAAA/7VSWw4CIQzkoVG/Ze/R8ljKn1eRyN7/CMYICWH7t+wkZAhthpmCFH+oun64VJZij9bzqgzHgL2Wg9X7Em1Bh2+wKVMAH/JKSBgofCw5V8hTTDlFSOhdwS0kt1UxOc8XSCbzKeHV5AGozvhMXe5TSOZsrD0GXrq6njjLpm/O0Ycbk3Hp9mbIyb0DHETT05WvYg811FrvffAn5/vD0Ytm7mp4VjbdWZvnF3hgTpCVBAAA";
+    // const BYTECODE: &str = "H4sIAAAAAAAA/62QQQqAMAwErfigpEna5OZXLLb/f4KKLZbiTQdCQg7Dsm66mc9x00O717rhG9ico5cgMOfoMxJu4C2pAEsKioqisnslysoaLVkEQ6aMRYxKFc//ZYQr29L10XfhXv4jB52E+OpMAQAA";
 
     #[test]
     fn test_acir_get_circuit_size() {
@@ -487,14 +487,16 @@ mod tests {
         setup_srs_from_bytecode(BYTECODE, None, true).await.unwrap();
 
         // 2) Prepare witness
-        let initial_witness =
-            from_vec_to_witness_map(vec![5 as u128, 6 as u128, 30 as u128]).unwrap();
+        let initial_witness = from_vec_to_witness_map(vec![5 as u128, 6 as u128]).unwrap();
 
         // 3) Generuj proof
         let start = std::time::Instant::now();
         let proof =
             prove_ultra_honk(BYTECODE, initial_witness, true).expect("prove_ultra_honk failed");
         println!("ultra honk proof generation time: {:?}", start.elapsed());
+
+        let proof_fields = acir_proof_as_fields_ultra_honk_safe(&proof);
+        println!("proof_fields {:?}", proof_fields);
 
         let hex = proof
             .iter()
