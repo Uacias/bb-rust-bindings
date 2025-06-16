@@ -18,11 +18,14 @@ fn encode_raw_buffer(data: &[u8]) -> Vec<u8> {
     buffer
 }
 
+const LEN_PREFIX: usize = 4;
+
 pub fn prove_ultra_honk(
     circuit_bytecode: &str,
     initial_witness: WitnessMap<FieldElement>,
     recursive: bool,
-) -> Result<Vec<u8>, String> {
+    pub_inputs_amount: usize,
+) -> Result<(Vec<u8>, Vec<u8>), String> {
     let witness_stack = execute(circuit_bytecode, initial_witness)?;
     let serialized_solved_witness = serialize_witness(witness_stack)?;
     let acir_buffer_uncompressed = get_acir_buffer_uncompressed(circuit_bytecode)?;
@@ -39,25 +42,30 @@ pub fn prove_ultra_honk(
         acir_prove_ultra_honk(acir_ptr, witness_ptr, &mut out_ptr as *mut *mut u8);
     }
 
-    // Odczytaj długość z prefiksu
-    let len_be = unsafe { std::ptr::read_unaligned(out_ptr as *const [u8; 4]) };
+    let len_be = unsafe { std::ptr::read_unaligned(out_ptr as *const [u8; LEN_PREFIX]) };
     let len = u32::from_be_bytes(len_be) as usize;
 
-    // Przesuń wskaźnik za prefix i skopiuj TYLKO czyste dane proof
-    let data_ptr = unsafe { out_ptr.add(4) };
+    let data_ptr = unsafe { out_ptr.add(LEN_PREFIX) };
     let proof = unsafe { std::slice::from_raw_parts(data_ptr, len).to_vec() };
 
-    // Zwolnij pamięć C++
     unsafe { free(out_ptr as *mut c_void) };
 
-    Ok(proof) // <- Zwracamy tylko dane, bez prefiksu
-}
+    let pub_inputs_len = 32;
+    if proof.len() < pub_inputs_len {
+        return Err("za mało bajtów, nie ma public inputs".into());
+    }
 
+    let public_inputs = proof[LEN_PREFIX..pub_inputs_len * pub_inputs_amount].to_vec();
+    let raw_proof = proof[LEN_PREFIX + pub_inputs_len * pub_inputs_amount..].to_vec();
+
+    Ok((public_inputs, raw_proof))
+}
 pub fn prove_ultra_keccak_honk(
     circuit_bytecode: &str,
     initial_witness: WitnessMap<FieldElement>,
     recursive: bool,
-) -> Result<Vec<u8>, String> {
+    pub_inputs_amount: usize,
+) -> Result<(Vec<u8>, Vec<u8>), String> {
     let witness_stack = execute(circuit_bytecode, initial_witness)?;
     let serialized_solved_witness = serialize_witness(witness_stack)?;
     let acir_buffer_uncompressed = get_acir_buffer_uncompressed(circuit_bytecode)?;
@@ -74,16 +82,21 @@ pub fn prove_ultra_keccak_honk(
         acir_prove_ultra_keccak_honk(acir_ptr, witness_ptr, &mut out_ptr as *mut *mut u8);
     }
 
-    // Odczytaj długość z prefiksu
-    let len_be = unsafe { std::ptr::read_unaligned(out_ptr as *const [u8; 4]) };
+    let len_be = unsafe { std::ptr::read_unaligned(out_ptr as *const [u8; LEN_PREFIX]) };
     let len = u32::from_be_bytes(len_be) as usize;
 
-    // Przesuń wskaźnik za prefix i skopiuj TYLKO czyste dane proof
-    let data_ptr = unsafe { out_ptr.add(4) };
+    let data_ptr = unsafe { out_ptr.add(LEN_PREFIX) };
     let proof = unsafe { std::slice::from_raw_parts(data_ptr, len).to_vec() };
 
-    // Zwolnij pamięć C++
     unsafe { free(out_ptr as *mut c_void) };
 
-    Ok(proof) // <- Zwracamy tylko dane, bez prefiksu
+    let pub_inputs_len = 32;
+    if proof.len() < pub_inputs_len {
+        return Err("za mało bajtów, nie ma public inputs".into());
+    }
+
+    let public_inputs = proof[LEN_PREFIX..pub_inputs_len * pub_inputs_amount].to_vec();
+    let proof = proof[LEN_PREFIX + pub_inputs_len * pub_inputs_amount..].to_vec();
+
+    Ok((public_inputs, proof))
 }

@@ -12,7 +12,7 @@ bn254_blackbox_solver = { git = "https://github.com/noir-lang/noir.git", tag = "
 nargo = { git = "https://github.com/noir-lang/noir.git", tag = "v1.0.0-beta.4", package = "nargo" }
 proptest = "=1.6.0"
 base64 = "0.22.0"
-flate2 = "1.0.28"
+flate2 = "1.0.26"
 libc = "0.2.172"
 hex = "0.4"
 reqwest = { version = "0.12.20", features = ["json"] }

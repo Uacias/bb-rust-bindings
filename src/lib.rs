@@ -373,7 +373,10 @@ mod tests {
         prove::{prove_ultra_honk, prove_ultra_keccak_honk},
         witness::from_vec_to_witness_map,
     };
-    use std::io::Write;
+    use std::{
+        fs::File,
+        io::{Result, Write},
+    };
 
     use super::*;
     const FR: [u8; 32] = [1; 32];
@@ -483,6 +486,53 @@ mod tests {
         assert_eq!(subgroup_size, 1048576);
     }
 
+    fn dump_proof_as_rust_array_dec(proof: &[u8], path: &str) -> Result<()> {
+        let mut f = File::create(path)?;
+        // nagłówek: nazwa i rozmiar tablicy
+        writeln!(f, "pub const PROOF_BYTES_DEC: [u8; {}] = [", proof.len())?;
+        // wypisz po 16 bajtów na linię
+        for (i, byte) in proof.iter().enumerate() {
+            if i % 16 == 0 {
+                write!(f, "    ")?; // wcięcie dla czytelności
+            }
+            // zamiast hex – wypisz liczbę dziesiętną
+            write!(f, "{}, ", byte)?;
+            if i % 16 == 15 {
+                writeln!(f)?; // zakończ linię co 16 wartości
+            }
+        }
+        // jeśli ostatnia linia nie miała pełnych 16 elementów, zakończ ją
+        if proof.len() % 16 != 0 {
+            writeln!(f)?;
+        }
+        // zamknięcie tablicy
+        writeln!(f, "];")?;
+        Ok(())
+    }
+
+    fn dump_proof_as_rust_array(proof: &[u8], path: &str) -> Result<()> {
+        let mut f = File::create(path)?;
+        // nagłówek
+        writeln!(f, "pub const PROOF_BYTES: [u8; {}] = [", proof.len())?;
+        // wypisz po 16 bajtów na linię
+        for (i, byte) in proof.iter().enumerate() {
+            if i % 16 == 0 {
+                write!(f, "    ")?; // wcięcie
+            }
+            write!(f, "0x{:02x}, ", byte)?;
+            if i % 16 == 15 {
+                writeln!(f)?; // nowa linia
+            }
+        }
+        // ewentualnie dokończ linię, jeśli ostatnia nie była pełna
+        if proof.len() % 16 != 0 {
+            writeln!(f)?;
+        }
+        // zakończenie tablicy
+        writeln!(f, "];")?;
+        Ok(())
+    }
+
     #[tokio::test]
     async fn test_prove_and_verify_ultra_honk() {
         // 1) Setup SRS (async)
@@ -492,128 +542,53 @@ mod tests {
         let initial_witness = from_vec_to_witness_map(vec![5 as u128, 6 as u128]).unwrap();
 
         // 3) Generuj proof - Ultra Honk
-        let start = std::time::Instant::now();
-        let proof = prove_ultra_honk(BYTECODE, initial_witness.clone(), true)
+        let proof = prove_ultra_honk(BYTECODE, initial_witness.clone(), true, 1)
             .expect("prove_ultra_honk failed");
-        println!("ultra honk proof generation time: {:?}", start.elapsed());
+        let proof_fields_bytes = acir_proof_as_fields_ultra_honk_safe(&proof.1);
 
-        // Analizuj strukturę proof
+        let proof_fields: Vec<String> = proof_fields_bytes
+            .iter()
+            .map(|bytes| {
+                let field = FieldElement::from_be_bytes_reduce(bytes);
+                field.to_string()
+            })
+            .collect();
+
         println!("\n=== Ultra Honk Proof Analysis ===");
-        if proof.len() >= 4 {
-            let len_prefix = u32::from_be_bytes([proof[0], proof[1], proof[2], proof[3]]);
-            println!("Length prefix: {} (0x{:08x})", len_prefix, len_prefix);
-            println!("Total proof size: {} bytes", proof.len());
-            println!("Actual data size: {} bytes", proof.len() - 4);
+        println!("Total proof size: {} bytes", proof.0.len() + proof.1.len());
+        println!("Number of proof fields: {}", proof_fields.len());
 
-            // Konwertuj tylko rzeczywiste dane (pomijając prefix długości)
-            let proof_data = &proof[4..];
-            let proof_fields = proof_to_fields(proof_data, 0);
-
-            println!("Number of field elements: {}", proof_fields.len());
-
-            // Wyświetl pierwsze kilka i ostatnie kilka fields
-            for i in 0..3.min(proof_fields.len()) {
-                println!("Field {}: {}", i, proof_fields[i]);
-            }
-
-            // Znajdź gdzie kończą się rzeczywiste dane (nie same zera)
-            let mut last_non_zero_field = 0;
-            for (i, field) in proof_fields.iter().enumerate() {
-                if field != &FieldElement::zero() {
-                    last_non_zero_field = i;
-                }
-            }
-            println!("Last non-zero field at index: {}", last_non_zero_field);
-            println!(
-                "Actual proof fields (non-zero): {}",
-                last_non_zero_field + 1
-            );
+        // Wyświetl pierwsze kilka fields
+        for i in 0..5.min(proof_fields.len()) {
+            println!("Field {}: {}", i, proof_fields[i]);
         }
 
-        // 4) Generuj proof - Ultra Keccak Honk
-        println!("\n=== Ultra Keccak Honk Proof Analysis ===");
-        let start2 = std::time::Instant::now();
-        let proof2 = prove_ultra_keccak_honk(BYTECODE, initial_witness, true)
-            .expect("prove_ultra_keccak_honk failed");
-        println!(
-            "ultra keccak honk proof generation time: {:?}",
-            start2.elapsed()
-        );
+        // 5) Zapisz proof fields jako stringi (jak w JS)
+        save_proof_fields_as_strings(&proof_fields, "ultra_honk_proof_fields_strings.txt");
 
-        if proof2.len() >= 4 {
-            let len_prefix = u32::from_be_bytes([proof2[0], proof2[1], proof2[2], proof2[3]]);
-            println!("Length prefix: {} (0x{:08x})", len_prefix, len_prefix);
-            println!("Total proof size: {} bytes", proof2.len());
-
-            let proof_data2 = &proof2[4..];
-            let proof_fields2 = proof_to_fields(proof_data2, 0);
-
-            println!("Number of field elements: {}", proof_fields2.len());
-
-            // Znajdź rzeczywistą długość
-            let mut last_non_zero_field2 = 0;
-            for (i, field) in proof_fields2.iter().enumerate() {
-                if field != &FieldElement::zero() {
-                    last_non_zero_field2 = i;
-                }
-            }
-            println!(
-                "Actual proof fields (non-zero): {}",
-                last_non_zero_field2 + 1
-            );
-        }
-
-        // 5) Zapisz tylko rzeczywiste dane (bez prefiksu długości)
-        save_proof_as_hex(&proof[4..], "ultra_honk_proof_data.hex");
-        save_proof_as_hex(&proof2[4..], "ultra_keccak_honk_proof_data.hex");
-
-        // 6) Zapisz też w formacie fields
-        save_proof_as_fields(&proof[4..], "ultra_honk_proof_fields.txt");
-        save_proof_as_fields(&proof2[4..], "ultra_keccak_honk_proof_fields.txt");
+        // 6) Zapisz też raw hex dla debugowania
+        save_raw_proof_hex(&proof.1, "ultra_honk_proof_raw.hex");
     }
 
-    // Helper: konwersja proof na field elements (podobnie jak w TS)
-    fn proof_to_fields(proof: &[u8], start_index: usize) -> Vec<FieldElement> {
-        let mut fields = Vec::new();
-
-        for i in (start_index..proof.len()).step_by(32) {
-            let end = (i + 32).min(proof.len());
-            let mut field_bytes = [0u8; 32];
-
-            // Skopiuj dostępne bajty
-            let copy_len = end - i;
-            field_bytes[..copy_len].copy_from_slice(&proof[i..end]);
-
-            // Konwertuj na FieldElement
-            let field = FieldElement::from_be_bytes_reduce(&field_bytes);
-            fields.push(field);
-        }
-
-        fields
-    }
-
-    // Helper: zapisz proof jako hex (czytelny format)
-    fn save_proof_as_hex(proof: &[u8], filename: &str) {
-        let mut file = std::fs::File::create(filename).expect("Failed to create file");
-
-        // Zapisz w liniach po 32 bajty (jeden field element)
-        for chunk in proof.chunks(32) {
-            let hex: String = chunk.iter().map(|b| format!("{:02x}", b)).collect();
-            writeln!(file, "{}", hex).expect("Failed to write");
-        }
-
-        println!("Saved hex to {}", filename);
-    }
-
-    // Helper: zapisz proof jako field elements
-    fn save_proof_as_fields(proof: &[u8], filename: &str) {
-        let fields = proof_to_fields(proof, 0);
+    // Helper: zapisz proof fields jako stringi
+    fn save_proof_fields_as_strings(fields: &[String], filename: &str) {
         let mut file = std::fs::File::create(filename).expect("Failed to create file");
 
         for (i, field) in fields.iter().enumerate() {
             writeln!(file, "Field[{}]: {}", i, field).expect("Failed to write");
         }
 
-        println!("Saved fields to {}", filename);
+        println!("Saved {} fields to {}", fields.len(), filename);
+    }
+
+    // Helper: zapisz surowy proof jako hex
+    fn save_raw_proof_hex(proof: &[u8], filename: &str) {
+        let hex = proof
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
+
+        std::fs::write(filename, hex).expect("Failed to write file");
+        println!("Saved raw proof ({} bytes) to {}", proof.len(), filename);
     }
 }
