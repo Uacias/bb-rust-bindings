@@ -4,6 +4,9 @@
 
 pub mod barretenberg;
 pub mod circuits;
+pub mod execute;
+pub mod prove;
+pub mod witness;
 
 // Load FFI bindings into a module, defining the same aliases
 // expected by the generated bindings.rs.
@@ -365,6 +368,8 @@ mod tests {
     use crate::{
         barretenberg::{srs::setup_srs_from_bytecode, utils::compute_subgroup_size},
         circuits::decode_circuit,
+        prove::prove_ultra_honk,
+        witness::from_vec_to_witness_map,
     };
     use std::io::Write;
 
@@ -435,7 +440,8 @@ mod tests {
         init_slab_allocator_safe(16);
     }
 
-    const BYTECODE: &str = "H4sIAAAAAAAA/7VSWw4CIQzkoVG/Ze/R8ljKn1eRyN7/CMYICWH7t+wkZAhthpmCFH+oun64VJZij9bzqgzHgL2Wg9X7Em1Bh2+wKVMAH/JKSBgofCw5V8hTTDlFSOhdwS0kt1UxOc8XSCbzKeHV5AGozvhMXe5TSOZsrD0GXrq6njjLpm/O0Ycbk3Hp9mbIyb0DHETT05WvYg811FrvffAn5/vD0Ytm7mp4VjbdWZvnF3hgTpCVBAAA";
+    // const BYTECODE: &str = "H4sIAAAAAAAA/7VSWw4CIQzkoVG/Ze/R8ljKn1eRyN7/CMYICWH7t+wkZAhthpmCFH+oun64VJZij9bzqgzHgL2Wg9X7Em1Bh2+wKVMAH/JKSBgofCw5V8hTTDlFSOhdwS0kt1UxOc8XSCbzKeHV5AGozvhMXe5TSOZsrD0GXrq6njjLpm/O0Ycbk3Hp9mbIyb0DHETT05WvYg811FrvffAn5/vD0Ytm7mp4VjbdWZvnF3hgTpCVBAAA";
+    const BYTECODE: &str = "H4sIAAAAAAAA/62QQQqAMAwErfigpEna5OZXLLb/f4KKLZbiTQdCQg7Dsm66mc9x00O717rhG9ico5cgMOfoMxJu4C2pAEsKioqisnslysoaLVkEQ6aMRYxKFc//ZYQr29L10XfhXv4jB52E+OpMAQAA";
 
     #[test]
     fn test_acir_get_circuit_size() {
@@ -477,9 +483,28 @@ mod tests {
 
     #[test]
     fn test_prove_and_verify_ultra_honk() {
-        println!("LOL");
-        std::io::stdout().flush().expect("Flush failed");
-        // Setup SRS
-        setup_srs_from_bytecode(BYTECODE, None, false).unwrap();
+        // 1) Setup SRS
+        setup_srs_from_bytecode(BYTECODE, None, true).unwrap();
+
+        // 2) Prepare witness
+        let initial_witness =
+            from_vec_to_witness_map(vec![5 as u128, 6 as u128, 30 as u128]).unwrap();
+
+        // 3) Generuj proof
+        let start = std::time::Instant::now();
+        let proof =
+            prove_ultra_honk(BYTECODE, initial_witness, true).expect("prove_ultra_honk failed");
+        println!("ultra honk proof generation time: {:?}", start.elapsed());
+
+        let hex = proof
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<_>>()
+            .join("");
+
+        let mut file =
+            std::fs::File::create("ultra_honk_proof.hex").expect("failed to create proof file");
+        writeln!(file, "{}", hex).expect("failed to write proof");
+        println!("Proof written to ultra_honk_proof.hex");
     }
 }

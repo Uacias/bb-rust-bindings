@@ -35,7 +35,7 @@ pub fn get_circuit_size(circuit_bytecode: &str, recursive: bool) -> u32 {
         Err(_) => return 0,
     };
     // Call the safe wrapper:
-    let sizes = get_circuit_sizes_safe(&acir_buf, recursive, false);
+    let sizes = get_circuit_sizes_safe(&acir_buf, recursive, true);
     sizes.total
 }
 
