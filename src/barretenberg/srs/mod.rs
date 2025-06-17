@@ -81,9 +81,6 @@ pub async fn setup_srs(circuit_size: u32, srs_path: Option<&str>) -> Result<u32,
         .map_err(|e| format!("Failed to get SRS: {}", e))?;
 
     // 3) Validate data
-    eprintln!("  G1 data length: {} bytes", srs.g1_data.len());
-    eprintln!("  G2 data length: {} bytes", srs.g2_data.len());
-    eprintln!("  Num points: {}", srs.num_points);
     srs_init_safe(&srs.g1_data, srs.num_points, &srs.g2_data);
 
     eprintln!("SRS initialized successfully!");
