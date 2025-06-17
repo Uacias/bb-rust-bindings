@@ -162,6 +162,13 @@ unsafe extern "C" {
     pub fn acir_prove_ultra_honk(acir_vec: *const u8, witness_vec: *const u8, out: *mut *mut u8);
 }
 unsafe extern "C" {
+    pub fn acir_prove_ultra_keccak_honk(
+        acir_vec: *const u8,
+        witness_vec: *const u8,
+        out: *mut *mut u8,
+    );
+}
+unsafe extern "C" {
     pub fn acir_verify_ultra_honk(proof_buf: *const u8, vk_buf: *const u8, result: *mut bool);
 }
 unsafe extern "C" {

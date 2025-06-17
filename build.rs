@@ -167,6 +167,7 @@ fn main() {
         .allowlist_function("acir_serialize_verification_key_into_fields")
         // Ultra Honk functions
         .allowlist_function("acir_prove_ultra_honk")
+        .allowlist_function("acir_prove_ultra_keccak_honk")
         .allowlist_function("acir_verify_ultra_honk")
         .allowlist_function("acir_write_vk_ultra_honk")
         .allowlist_function("acir_prove_and_verify_ultra_honk")

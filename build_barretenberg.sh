@@ -9,7 +9,7 @@ BARRETENBERG_PATH="$HOME/dev/visoft/aztec/aztec-packages/barretenberg/cpp"
 
 echo "🔨 Building Barretenberg with Rust-friendly flags..."
 
-# Sprawdź czy katalog istnieje
+# Check if dir is present
 if [ ! -d "$BARRETENBERG_PATH" ]; then
     echo "❌ Error: Barretenberg path not found: $BARRETENBERG_PATH"
     echo "Please update BARRETENBERG_PATH in this script"
@@ -20,7 +20,7 @@ cd "$BARRETENBERG_PATH"
 
 echo "📁 Current directory: $(pwd)"
 
-# Usuń stary build (opcjonalnie)
+# Rm old build (optional)
 if [ "$1" = "--clean" ]; then
     echo "🧹 Cleaning old build directory..."
     rm -rf build
@@ -39,7 +39,7 @@ echo "✅ Barretenberg build completed successfully!"
 echo "📍 Build location: $BARRETENBERG_PATH/build"
 echo "📍 Headers location: $BARRETENBERG_PATH/build/include"
 
-# Sprawdź czy biblioteka została utworzona
+# Check if lib has been created
 LIB_PATH="$BARRETENBERG_PATH/build/lib/libbarretenberg.a"
 if [ -f "$LIB_PATH" ]; then
     echo "✅ Library found: $LIB_PATH"
